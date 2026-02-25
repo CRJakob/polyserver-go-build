@@ -82,7 +82,13 @@ func (player *Player) HandleMessage(data []byte) {
 	case gamepackets.HostRecord:
 		recordPacket, _ := packet.(gamepackets.HostRecordPacket)
 		if player.Server.GameSession.SessionID == recordPacket.SessionID {
-			player.NumberOfFrames = &recordPacket.NumOfFrames
+			if recordPacket.NumOfFrames > uint32(5999999) {
+				maxFrames := uint32(5999999)
+				player.NumberOfFrames = &maxFrames
+			} else {
+				player.NumberOfFrames = &recordPacket.NumOfFrames
+			}
+
 			for _, p := range player.Server.Players {
 				if p.ID != player.ID {
 					p.SendPlayerUpdate(player)
