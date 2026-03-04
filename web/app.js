@@ -1,4 +1,6 @@
 const inviteBox = document.getElementById("invite");
+const inviteKeyBox = document.getElementById("inviteKey");
+const timeoutInBox = document.getElementById("timeoutIn");
 
 async function updateStatus() {
   const r = await fetch("/api/server/status");
@@ -34,6 +36,8 @@ async function loadServerData() {
     let sessionData = JSON.parse(data.session);
 
     inviteBox.textContent = data.invite || "-";
+    inviteKeyBox.textContent = data.inviteKey || "-";
+    timeoutInBox.textContent = data.timeoutIn || "-";
 
     const select = document.getElementById("trackSelect");
     const selectSession = document.getElementById("trackSelectSession");
@@ -88,11 +92,6 @@ async function sendSession() {
     if(child.children[0].checked) break;
     index++;
   }
-  console.log(JSON.stringify({ 
-      gamemode: index, 
-      track: document.getElementById("trackSelectSession").value,
-      maxPlayers: document.getElementById("maxPlayers").value,
-    }))
   await fetch("/api/session/set", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -104,11 +103,20 @@ async function sendSession() {
   });
 }
 
-async function createInvite() {
-  const r = await fetch("/api/invite", { method: "POST" });
+async function createInvite(regenerate) {
+  const r = await fetch("/api/invite", { 
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      regenerate,
+      key: document.getElementById("inviteKeyIn").value
+    }),
+  });
   const data = await r.json();
 
   inviteBox.textContent = data.invite;
+  inviteKeyBox.textContent = data.inviteKey;
+  timeoutInBox.textContent = data.timeoutIn;
   await loadServerData();
 }
 

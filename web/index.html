@@ -22,8 +22,18 @@
 
   <hr />
   <h2 class="uk-light">Invite</h2>
-  <pre id="invite"  @ class="uk-width-1-6"  >-</pre>
-  <button class="uk-button uk-button-primary" onclick="createInvite()">Create Invite</button>
+
+  <p>Current invite:</p>
+  <pre id="invite" class="uk-width-1-6">-</pre>
+  
+  <p>Will timeout in:</p>
+  <pre id="timeoutIn" class="uk-width-1-6">-</pre>
+  <button class="uk-button uk-button-primary" onclick="createInvite(false)">Renew Invite</button>
+
+  <p>Current key:</p>
+  <pre id="inviteKey" class="uk-width-1-3">-</pre>
+  <!-- (doesnt work) <input class="uk-input uk-width-1-3" id="inviteKeyIn" placeholder="leave blank for new invite"><br>-->
+  <button class="uk-button uk-button-primary" onclick="createInvite(true)">Create New Invite <!-- (also doesnt work) From Key--></button>
   
   <h2 class="uk-light">Players / Scoreboard</h2>
 

@@ -68,7 +68,7 @@ func runServer() {
 		MaxPlayers:       200,
 	})
 
-	if err := server.CreateInvite(); err != nil {
+	if err := server.CreateInvite(nil); err != nil {
 		log.Fatalf("Failed to create invite: %v", err)
 	}
 
@@ -98,21 +98,41 @@ func runServer() {
 		}
 
 		return c.JSON(fiber.Map{
-			"invite":  server.CurrentInvite,
-			"tracks":  trackNames,
-			"current": currentName,
-			"session": string(currentSession),
+			"invite":    server.CurrentInvite,
+			"inviteKey": server.CurrentInviteKey,
+			"timeoutIn": (time.Second * time.Duration(server.InviteTimeout.Unix()-time.Now().Unix())).String(),
+			"tracks":    trackNames,
+			"current":   currentName,
+			"session":   string(currentSession),
 		})
 	})
 
 	app.Post("/invite", func(c *fiber.Ctx) error {
 
-		if err := server.CreateInvite(); err != nil {
+		type Req struct {
+			Regenerate bool    `json:"regenerate"`
+			Key        *string `json:"key"`
+		}
+
+		var req Req
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+		var key *string
+		if req.Regenerate {
+			key = server.CurrentInviteKey
+		} else {
+			key = req.Key
+		}
+
+		if err := server.CreateInvite(key); err != nil {
 			return c.Status(500).SendString(err.Error())
 		}
 
 		return c.JSON(fiber.Map{
-			"invite": server.CurrentInvite,
+			"invite":    server.CurrentInvite,
+			"key":       server.CurrentInviteKey,
+			"timeoutIn": (time.Second * time.Duration(server.InviteTimeout.Unix()-time.Now().Unix())).String(),
 		})
 	})
 

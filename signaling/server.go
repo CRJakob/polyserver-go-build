@@ -7,6 +7,7 @@ import (
 	"polyserver/config"
 	webrtc_session "polyserver/webrtc"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
@@ -17,6 +18,7 @@ type WebRTCServer struct {
 	ConnLock         sync.Mutex
 	CurrentInvite    string
 	CurrentInviteKey *string
+	InviteTimeout    time.Time
 	SessionLock      sync.Mutex
 	Sessions         map[string]*webrtc_session.PeerSession
 	ClientCount      uint32
@@ -46,17 +48,21 @@ func (s *WebRTCServer) Connect() error {
 	return nil
 }
 
-func (s *WebRTCServer) RegenerateInvite() error {
+func (s *WebRTCServer) RegenerateInvite(newInvite bool) error {
 	if err := s.Connect(); err != nil {
 		return err
 	}
 
 	go s.Start()
+	key := s.CurrentInviteKey
+	if newInvite {
+		key = nil
+	}
 
-	return s.CreateInvite()
+	return s.CreateInvite(key)
 }
 
-func (s *WebRTCServer) CreateInvite() error {
+func (s *WebRTCServer) CreateInvite(key *string) error {
 	if s.Conn == nil {
 		return fmt.Errorf("not connected")
 	}
@@ -64,7 +70,7 @@ func (s *WebRTCServer) CreateInvite() error {
 	payload := map[string]interface{}{
 		"version": config.PolyVersion,
 		"type":    "createInvite",
-		"key":     s.CurrentInviteKey,
+		"key":     key,
 	}
 
 	data, _ := json.Marshal(payload)
@@ -77,7 +83,7 @@ func (s *WebRTCServer) Start() {
 		_, message, err := s.Conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
-			err := s.RegenerateInvite()
+			err := s.RegenerateInvite(false)
 			if err != nil {
 				log.Panicln("Unable to restart ws: " + err.Error())
 			}
@@ -91,8 +97,10 @@ func (s *WebRTCServer) Start() {
 func (s *WebRTCServer) handleCreateInvite(p CreateInviteResponse) {
 	s.CurrentInvite = p.InviteCode
 	s.CurrentInviteKey = &p.InviteKey
+	s.InviteTimeout = time.Now().Add(time.Millisecond * time.Duration(p.TimeoutMilliseconds))
 	log.Println("Invite code:", s.CurrentInvite)
 	log.Println("Invite key:", *s.CurrentInviteKey)
+	log.Println("Will timeout at:", s.InviteTimeout.String())
 }
 
 func (s *WebRTCServer) onConnectionClosed(sessionId string) {
