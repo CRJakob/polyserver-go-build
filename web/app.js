@@ -104,12 +104,13 @@ async function sendSession() {
 }
 
 async function createInvite(regenerate) {
-  const r = await fetch("/api/invite", { 
+  console.log("INVITE")
+  const r = await fetch("/api/invite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      regenerate,
-      key: document.getElementById("inviteKeyIn").value
+      regenerate: regenerate ? true : false,
+      key: "nu"
     }),
   });
   const data = await r.json();
