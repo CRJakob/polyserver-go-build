@@ -21,6 +21,35 @@
   <button class="uk-button uk-button-danger" onclick="stopServer()">Stop Server</button>
 
   <hr />
+  <h2 class="uk-light">Server Profiling</h2>
+  <div class="uk-grid-small uk-child-width-1-4@s uk-flex-center uk-text-center" uk-grid>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <h3 class="uk-card-title">Goroutines</h3>
+            <p id="stats-goroutines" class="uk-text-large uk-text-bold">-</p>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <h3 class="uk-card-title">Memory</h3>
+            <p id="stats-memory" class="uk-text-large uk-text-bold">-</p>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <h3 class="uk-card-title">Bandwidth (Up)</h3>
+            <p id="stats-bw-up" class="uk-text-large uk-text-bold">-</p>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <h3 class="uk-card-title">Bandwidth (Down)</h3>
+            <p id="stats-bw-down" class="uk-text-large uk-text-bold">-</p>
+        </div>
+    </div>
+  </div>
+
+  <hr />
   <h2 class="uk-light">Invite</h2>
 
   <p>Current invite:</p>

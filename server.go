@@ -12,6 +12,7 @@ import (
 	gametrack "polyserver/game/track"
 	"polyserver/signaling"
 	"polyserver/tracks"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -112,6 +113,9 @@ func runServer() {
 			}
 		}
 
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+
 		return c.JSON(fiber.Map{
 			"invite":     server.CurrentInvite,
 			"inviteKey":  server.CurrentInviteKey,
@@ -120,6 +124,12 @@ func runServer() {
 			"current":    currentName,
 			"currentDir": currentDir,
 			"session":    string(currentSession),
+			"stats": fiber.Map{
+				"goroutines": runtime.NumGoroutine(),
+				"memoryAlloc": memStats.Alloc,
+				"bytesSent": gameServer.BytesSent,
+				"bytesReceived": gameServer.BytesReceived,
+			},
 		})
 	})
 

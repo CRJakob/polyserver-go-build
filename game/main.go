@@ -8,6 +8,7 @@ import (
 	"polyserver/signaling"
 	webrtc_session "polyserver/webrtc"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,6 +19,11 @@ type GameServer struct {
 	Factory         gamepackets.PacketFactory
 	GameSession     *GameSession
 	Batcher         *CarUpdateBatcher
+	
+	// Profiling Stats
+	BytesSent       uint64
+	BytesReceived   uint64
+	CurrentTickTime int64
 }
 
 type GameMode uint8
@@ -241,27 +247,49 @@ type CarStateExtended struct {
 }
 
 func (server *GameServer) UpdateCarStates() {
+	startTime := time.Now()
+
+	// First gather all updates while holding playersLock to get a snapshot of players
 	server.playersLock.Lock()
-	defer server.playersLock.Unlock()
-	for _, player := range server.Players {
+	playersCopy := make([]*Player, len(server.Players))
+	copy(playersCopy, server.Players)
+	server.playersLock.Unlock()
+
+	// For each player, collect their unsent car states, and clear them to prevent memory leak
+	playerStates := make(map[uint32][]*CarStateExtended)
+	for _, p := range playersCopy {
+		p.CSLock.Lock()
+		if len(p.UnsentCarStates) > 0 {
+			var states []*CarStateExtended
+			for _, carState := range p.UnsentCarStates {
+				states = append(states, &CarStateExtended{
+					ID:           p.ID,
+					ResetCounter: p.ResetCounter,
+					CarState:     carState,
+				})
+			}
+			playerStates[p.ID] = states
+			p.UnsentCarStates = p.UnsentCarStates[:0] // Clear slice to stop infinite growth
+		}
+		p.CSLock.Unlock()
+	}
+
+	// Now distribute states to everyone else
+	var wg sync.WaitGroup
+	for _, player := range playersCopy {
 		var unsentCarStates []*CarStateExtended
-		// So others can't modify data while we're reading it
-		player.CSLock.Lock()
-		for _, p := range server.Players {
-			if player != p && len(p.UnsentCarStates) > 0 {
-				for _, carState := range p.UnsentCarStates {
-					unsentCarStates = append(unsentCarStates, &CarStateExtended{
-						ID:           p.ID,
-						ResetCounter: p.ResetCounter,
-						CarState:     carState,
-					})
-				}
+		for playerID, states := range playerStates {
+			if playerID != player.ID {
+				unsentCarStates = append(unsentCarStates, states...)
 			}
 		}
 
-		// I wana look into this more, i think it would be nice
-		// to have it multithreaded
-		go server.Batcher.SendCarUpdates(player, unsentCarStates)
-		player.CSLock.Unlock()
+		wg.Add(1)
+		go func(p *Player, states []*CarStateExtended) {
+			defer wg.Done()
+			server.Batcher.SendCarUpdates(p, states)
+		}(player, unsentCarStates)
 	}
+	wg.Wait()
+	atomic.StoreInt64(&server.CurrentTickTime, time.Since(startTime).Microseconds())
 }

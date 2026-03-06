@@ -6,6 +6,7 @@ import (
 	gamepackets "polyserver/game/packets"
 	webrtc_session "polyserver/webrtc"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -47,6 +48,7 @@ func NewPlayer(p *Player) *Player {
 }
 
 func (player *Player) HandleMessage(data []byte) {
+	atomic.AddUint64(&player.Server.BytesReceived, uint64(len(data)))
 	packet, err := player.Server.Factory.FromBytes(data)
 	if err != nil {
 		log.Println("Error from packet: " + err.Error())
@@ -124,6 +126,7 @@ func (player *Player) Send(packet gamepackets.PlayerPacket) error {
 		return fmt.Errorf("failed to marshal %s packet: %w", packet.Type(), err)
 	}
 
+	atomic.AddUint64(&player.Server.BytesSent, uint64(len(data)))
 	return player.Session.ReliableDC.Send(data)
 }
 
@@ -133,6 +136,7 @@ func (player *Player) SendUnreliable(packet gamepackets.PlayerPacket) error {
 		return fmt.Errorf("failed to marshal %s packet: %w", packet.Type(), err)
 	}
 
+	atomic.AddUint64(&player.Server.BytesSent, uint64(len(data)))
 	return player.Session.UnreliableDC.Send(data)
 }
 
@@ -168,6 +172,7 @@ func (player *Player) SendTrack() error {
 		copy(packet[1:], trackString[offset:chunkEnd])
 
 		// Send the raw packet
+		atomic.AddUint64(&player.Server.BytesSent, uint64(len(packet)))
 		if err := player.Session.ReliableDC.Send(packet); err != nil {
 			return fmt.Errorf("failed to send chunk at offset %d: %w", offset, err)
 		}

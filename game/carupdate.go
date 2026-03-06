@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	gamepackets "polyserver/game/packets"
 )
 
@@ -131,13 +132,28 @@ func combineByteSlices(slices [][]byte) []byte {
 	return result
 }
 
-func compressWithSettings(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
+var zlibWriterPool = sync.Pool{
+	New: func() interface{} {
+		// Start with an empty writer; reset it before use
+		w, _ := zlib.NewWriterLevel(nil, zlib.DefaultCompression)
+		return w
+	},
+}
 
-	writer, err := zlib.NewWriterLevel(&buf, zlib.DefaultCompression)
-	if err != nil {
-		return nil, err
-	}
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
+func compressWithSettings(data []byte) ([]byte, error) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	writer := zlibWriterPool.Get().(*zlib.Writer)
+	writer.Reset(buf)
+	defer zlibWriterPool.Put(writer)
 
 	if _, err := writer.Write(data); err != nil {
 		writer.Close()
@@ -147,5 +163,8 @@ func compressWithSettings(data []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	// We must copy the bytes because we are reusing the buffer
+	compressed := make([]byte, buf.Len())
+	copy(compressed, buf.Bytes())
+	return compressed, nil
 }

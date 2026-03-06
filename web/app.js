@@ -13,6 +13,33 @@ async function updateStatus() {
   document.getElementById("pid").textContent = data.running ? data.pid : "-";
 }
 
+function formatBytes(bytes, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch("/api/stats");
+    const data = await r.json();
+    if (data && data.stats) {
+      document.getElementById("stats-goroutines").textContent = data.stats.goroutines;
+      document.getElementById("stats-memory").textContent = formatBytes(data.stats.memoryAlloc);
+      document.getElementById("stats-bw-up").textContent = formatBytes(data.stats.bytesSent);
+      document.getElementById("stats-bw-down").textContent = formatBytes(data.stats.bytesReceived);
+    }
+  } catch (e) {
+    document.getElementById("stats-goroutines").textContent = "-";
+    document.getElementById("stats-memory").textContent = "-";
+    document.getElementById("stats-bw-up").textContent = "-";
+    document.getElementById("stats-bw-down").textContent = "-";
+  }
+}
+
 async function startServer() {
   await fetch("/api/server/start", { method: "POST" });
 
@@ -40,9 +67,9 @@ async function loadServerData() {
     timeoutInBox.textContent = data.timeoutIn || "-";
     const selectSession = document.getElementById("trackSelectSession");
 
-    if(!sessionData.switchingSession || selectSession.children.length == 0) {
+    if (!sessionData.switchingSession || selectSession.children.length == 0) {
       selectSession.innerHTML = "";
-      for(let key in data.tracks) {
+      for (let key in data.tracks) {
         data.tracks[key].forEach((name) => {
           const opt2 = document.createElement("option");
           opt2.value = `${key}/${name}`;
@@ -62,7 +89,7 @@ async function loadServerData() {
     document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
     document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"] || sessionData["propagated"]
     document.getElementById("endSessionBtn").disabled = sessionData["switchingSession"]
-  } catch(e) {
+  } catch (e) {
     console.log("Error " + e)
     inviteBox.textContent = "(server not running)";
   }
@@ -79,16 +106,16 @@ async function startSession() {
 
 async function sendSession() {
   let index = 0;
-  for(let child of document.getElementById("gamemodePicker").children) {
-    if(child.children[0].checked) break;
+  for (let child of document.getElementById("gamemodePicker").children) {
+    if (child.children[0].checked) break;
     index++;
   }
   await fetch("/api/session/set", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       gamemode: index,
-      trackDir:  document.getElementById("trackSelectSession").value.split("/")[0],
+      trackDir: document.getElementById("trackSelectSession").value.split("/")[0],
       track: document.getElementById("trackSelectSession").value.split("/")[1],
       maxPlayers: parseInt(document.getElementById("maxPlayers").value),
     }),
@@ -160,9 +187,11 @@ function main() {
   updateStatus();
   loadServerData();
   loadPlayers();
+  loadStats();
 
   setInterval(updateStatus, 2000);
   setInterval(loadPlayers, 1000);
+  setInterval(loadStats, 1000);
   setInterval(loadServerData, 3000);
 }
 
