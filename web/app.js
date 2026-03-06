@@ -33,32 +33,26 @@ async function loadServerData() {
   try {
     const r = await fetch("/api/tracks");
     const data = await r.json();
+    console.log(data)
     let sessionData = JSON.parse(data.session);
 
+    document.getElementById("currentMap").innerHTML = `Current Map: <b>${data.currentDir}/${data.current}</b>`
     inviteBox.textContent = data.invite || "-";
     inviteKeyBox.textContent = data.inviteKey || "-";
     timeoutInBox.textContent = data.timeoutIn || "-";
-
-    const select = document.getElementById("trackSelect");
     const selectSession = document.getElementById("trackSelectSession");
 
     if(!sessionData.switchingSession || selectSession.children.length == 0) {
-      select.innerHTML = "";
       selectSession.innerHTML = "";
-      data.tracks.forEach((name) => {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
+      for(let key in data.tracks) {
+        data.tracks[key].forEach((name) => {
+          const opt2 = document.createElement("option");
+          opt2.value = `${key}/${name}`;
+          opt2.textContent = `${key}/${name}`;;
 
-        if (name === data.current) opt.selected = true;
-
-        const opt2 = document.createElement("option");
-        opt2.value = name;
-        opt2.textContent = name;
-
-        select.appendChild(opt);
-        selectSession.appendChild(opt2);
-      });
+          selectSession.appendChild(opt2);
+        });
+      }
     }
     let sessionInfoDiv = document.getElementById("sessionInfo")
     sessionInfoDiv.innerHTML = `
@@ -67,10 +61,9 @@ async function loadServerData() {
       <p>Max players: <strong>${sessionData["maxPlayers"]}</strong></p>
       <p>Switching sessions? <strong>${sessionData["switchingSession"] ? "Yes" : "No"}</strong></p>
       `;
-      document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
-      document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"]
-      document.getElementById("endSessionBtn").disabled = sessionData["switchingSession"]
-
+    document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
+    document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"] || sessionData["propagated"]
+    document.getElementById("endSessionBtn").disabled = sessionData["switchingSession"]
   } catch(e) {
     console.log("Error " + e)
     inviteBox.textContent = "(server not running)";
@@ -96,8 +89,9 @@ async function sendSession() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ 
-      gamemode: index, 
-      track: document.getElementById("trackSelectSession").value,
+      gamemode: index,
+      trackDir:  document.getElementById("trackSelectSession").value.split("/")[0],
+      track: document.getElementById("trackSelectSession").value.split("/")[1],
       maxPlayers: parseInt(document.getElementById("maxPlayers").value),
     }),
   });

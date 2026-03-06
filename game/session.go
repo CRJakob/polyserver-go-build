@@ -8,7 +8,7 @@ type GameSession struct {
 	SwitchingSession bool             `json:"switchingSession"`
 	CurrentTrack     *gametrack.Track `json:"currentTrack"`
 	MaxPlayers       int              `json:"maxPlayers"`
-	Propagated       bool
+	Propagated       bool             `json:"propagated"`
 }
 
 // TODO: Proper session switching

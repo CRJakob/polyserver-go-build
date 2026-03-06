@@ -91,11 +91,13 @@ func runServer() {
 	app.Get("/status", func(c *fiber.Ctx) error {
 
 		currentName := ""
+		currentDir := ""
 		currentSession, err := json.Marshal(game.GameSession{
 			SessionID:        gameServer.GameSession.SessionID,
 			GameMode:         gameServer.GameSession.GameMode,
 			SwitchingSession: gameServer.GameSession.SwitchingSession,
 			MaxPlayers:       gameServer.GameSession.MaxPlayers,
+			Propagated:       gameServer.GameSession.Propagated,
 		})
 		if err != nil {
 			log.Println("Error marshalling session: " + err.Error())
@@ -104,18 +106,20 @@ func runServer() {
 			for name, t := range tracksMap[dirName] {
 				if t == gameServer.GameSession.CurrentTrack {
 					currentName = name
+					currentDir = dirName
 					break
 				}
 			}
 		}
 
 		return c.JSON(fiber.Map{
-			"invite":    server.CurrentInvite,
-			"inviteKey": server.CurrentInviteKey,
-			"timeoutIn": (time.Second * time.Duration(server.InviteTimeout.Unix()-time.Now().Unix())).String(),
-			"tracks":    trackNames,
-			"current":   currentName,
-			"session":   string(currentSession),
+			"invite":     server.CurrentInvite,
+			"inviteKey":  server.CurrentInviteKey,
+			"timeoutIn":  (time.Second * time.Duration(server.InviteTimeout.Unix()-time.Now().Unix())).String(),
+			"tracks":     trackNames,
+			"current":    currentName,
+			"currentDir": currentDir,
+			"session":    string(currentSession),
 		})
 	})
 
