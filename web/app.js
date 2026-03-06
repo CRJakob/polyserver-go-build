@@ -95,6 +95,7 @@ async function sendSession() {
       maxPlayers: parseInt(document.getElementById("maxPlayers").value),
     }),
   });
+  await loadServerData()
 }
 
 async function createInvite(regenerate) {
