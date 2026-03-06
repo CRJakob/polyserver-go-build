@@ -131,8 +131,12 @@
   <button class="uk-button uk-button-primary" onclick="reloadTracks()">Reload Tracks</button>
 
   <h3 class="uk-light">Manual Controls</h3>
-  <h3 class="uk-light">Map: </h3>
-  <select class="uk-select uk-width-1-4" id="trackSelectSession"></select>
+  <h3 class="uk-light">Map Folder & Track: </h3>
+  <div class="uk-flex uk-flex-middle">
+      <select class="uk-select uk-width-1-6" id="trackDirSelectSession" onchange="updateTrackDropdown()"></select>
+      <select class="uk-select uk-width-1-6 uk-margin-small-left" id="trackSelectSession"></select>
+      <button class="uk-button uk-button-secondary uk-margin-small-left" onclick="quickApplySession()">Quick Apply Map</button>
+  </div>
 
   <h3 class="uk-light">Gamemode: </h3>
   <div class="uk-margin uk-grid-small uk-child-width-auto uk-grid" id="gamemodePicker">
@@ -141,7 +145,11 @@
   </div>
   <h3 class="uk-light">Max Players: </h3>
 
-  <input class="uk-input uk-width-1-4" id="maxPlayers"><br><br>
+  <div class="uk-flex uk-flex-middle">
+      <input class="uk-input uk-width-1-4" id="maxPlayers">
+      <button class="uk-button uk-button-secondary uk-margin-small-left" onclick="quickApplySession()">Quick Apply Settings</button>
+  </div>
+  <br><br>
 
   <button class="uk-button uk-button-primary" onclick="startSession()" id="startSessionBtn">Start Session</button>
   <button class="uk-button uk-button-primary" onclick="sendSession()" id="sendSessionBtn">Send to Server</button>

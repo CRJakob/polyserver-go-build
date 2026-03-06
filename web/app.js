@@ -164,27 +164,41 @@ async function stopServer() {
 
 // ---------- INVITE + TRACKS ----------
 
+let currentTracksData = {};
+
 async function loadServerData() {
   try {
     const r = await fetch("/api/tracks");
     const data = await r.json();
     let sessionData = JSON.parse(data.session);
+    let tracksChanged = JSON.stringify(currentTracksData) !== JSON.stringify(data.tracks);
+    currentTracksData = data.tracks;
 
     inviteBox.textContent = data.invite || "-";
     inviteKeyBox.textContent = data.inviteKey || "-";
     timeoutInBox.textContent = data.timeoutIn || "-";
+    const selectDir = document.getElementById("trackDirSelectSession");
     const selectSession = document.getElementById("trackSelectSession");
 
-    if (!sessionData.switchingSession || selectSession.children.length == 0) {
-      selectSession.innerHTML = "";
-      for (let key in data.tracks) {
-        data.tracks[key].forEach((name) => {
-          const opt2 = document.createElement("option");
-          opt2.value = `${key}/${name}`;
-          opt2.textContent = `${key}/${name}`;;
+    if (!sessionData.switchingSession && (tracksChanged || selectDir.children.length == 0)) {
+      let oldDir = selectDir.value;
+      let oldTrack = selectSession.value;
 
-          selectSession.appendChild(opt2);
-        });
+      selectDir.innerHTML = "";
+      for (let folder in data.tracks) {
+        const opt = document.createElement("option");
+        opt.value = folder;
+        opt.textContent = folder;
+        selectDir.appendChild(opt);
+      }
+
+      if (oldDir && currentTracksData[oldDir]) {
+        selectDir.value = oldDir;
+      }
+      updateTrackDropdown();
+
+      if (oldTrack && selectSession.querySelector(`option[value="${oldTrack}"]`)) {
+        selectSession.value = oldTrack;
       }
     }
     let sessionInfoDiv = document.getElementById("sessionInfo")
@@ -212,6 +226,22 @@ async function startSession() {
   await loadServerData()
 }
 
+function updateTrackDropdown() {
+  const selectDir = document.getElementById("trackDirSelectSession");
+  const selectSession = document.getElementById("trackSelectSession");
+  const folder = selectDir.value;
+  
+  selectSession.innerHTML = "";
+  if (currentTracksData[folder]) {
+    currentTracksData[folder].forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      selectSession.appendChild(opt);
+    });
+  }
+}
+
 async function sendSession() {
   let index = 0;
   for (let child of document.getElementById("gamemodePicker").children) {
@@ -223,12 +253,33 @@ async function sendSession() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       gamemode: index,
-      trackDir: document.getElementById("trackSelectSession").value.split("/")[0],
-      track: document.getElementById("trackSelectSession").value.split("/")[1],
+      trackDir: document.getElementById("trackDirSelectSession").value,
+      track: document.getElementById("trackSelectSession").value,
       maxPlayers: parseInt(document.getElementById("maxPlayers").value),
     }),
   });
-  await loadServerData()
+  await loadServerData();
+}
+
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+async function quickApplySession() {
+  try {
+    await fetch("/api/session/end", { method: "POST" });
+    await loadServerData();
+    console.log("Ended session...");
+    
+    await delay(1000); // Wait 1s
+    
+    await sendSession(); // Sets the new payload (this also calls loadServerData)
+    console.log("Sent new session data...");
+    
+    await delay(1000); // Optional slight delay before starting again
+    await startSession(); // Triggers propagation to clients
+    console.log("Started new session!");
+  } catch (err) {
+    console.error("Quick Apply Failed:", err);
+  }
 }
 
 async function createInvite(regenerate) {
