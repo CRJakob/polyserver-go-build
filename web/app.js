@@ -22,21 +22,129 @@ function formatBytes(bytes, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// ---------- CHARTS ----------
+let timeLabels = Array(60).fill("");
+let histTick = Array(60).fill(0);
+let histGoroutine = Array(60).fill(0);
+let histMem = Array(60).fill(0);
+let histBwUp = Array(60).fill(0);
+let histBwDown = Array(60).fill(0);
+
+let chartTick, chartGoroutine, chartMem, chartBw;
+
+function initCharts() {
+  const commonOptions = {
+    animation: false,
+    responsive: true,
+    scales: {
+      x: { display: false },
+      y: { beginAtZero: true }
+    },
+    elements: {
+      point: { radius: 0 }
+    }
+  };
+
+  chartTick = new Chart(document.getElementById("chart-ticktime"), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{ label: 'Tick Time (ms)', data: histTick, borderColor: 'rgb(255, 99, 132)', tension: 0.1 }]
+    },
+    options: commonOptions
+  });
+
+  chartGoroutine = new Chart(document.getElementById("chart-goroutines"), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{ label: 'Goroutines', data: histGoroutine, borderColor: 'rgb(54, 162, 235)', tension: 0.1 }]
+    },
+    options: commonOptions
+  });
+
+  chartMem = new Chart(document.getElementById("chart-memory"), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{ label: 'Memory (MB)', data: histMem, borderColor: 'rgb(153, 102, 255)', tension: 0.1 }]
+    },
+    options: commonOptions
+  });
+
+  chartBw = new Chart(document.getElementById("chart-bandwidth"), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [
+        { label: 'Sent (KB/s)', data: histBwUp, borderColor: 'rgb(75, 192, 192)', tension: 0.1 },
+        { label: 'Received (KB/s)', data: histBwDown, borderColor: 'rgb(255, 159, 64)', tension: 0.1 }
+      ]
+    },
+    options: commonOptions
+  });
+}
+
+let lastBytesSent = 0;
+let lastBytesReceived = 0;
+
 async function loadStats() {
   try {
     const r = await fetch("/api/stats");
     const data = await r.json();
     if (data && data.stats) {
       document.getElementById("stats-goroutines").textContent = data.stats.goroutines;
+      document.getElementById("stats-ticktime").textContent = (data.stats.tickTime / 1000).toFixed(2) + " ms";
       document.getElementById("stats-memory").textContent = formatBytes(data.stats.memoryAlloc);
-      document.getElementById("stats-bw-up").textContent = formatBytes(data.stats.bytesSent);
-      document.getElementById("stats-bw-down").textContent = formatBytes(data.stats.bytesReceived);
+
+      let now = new Date();
+      timeLabels.push(`${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`);
+      timeLabels.shift();
+
+      histTick.push(data.stats.tickTime / 1000); histTick.shift();
+      histGoroutine.push(data.stats.goroutines); histGoroutine.shift();
+      histMem.push(data.stats.memoryAlloc / 1024 / 1024); histMem.shift(); // MB
+      
+      let upRate = 0;
+      let downRate = 0;
+      if (lastBytesSent > 0 || lastBytesReceived > 0) {
+          upRate = data.stats.bytesSent - lastBytesSent;
+          downRate = data.stats.bytesReceived - lastBytesReceived;
+      }
+      lastBytesSent = data.stats.bytesSent;
+      lastBytesReceived = data.stats.bytesReceived;
+
+      histBwUp.push(upRate / 1024); histBwUp.shift(); // KB/s
+      histBwDown.push(downRate / 1024); histBwDown.shift(); // KB/s
+
+      // Update multi-bandwidth labels
+      const sumArray = (arr, numItems) => arr.slice(-numItems).reduce((a, b) => a + b, 0) * 1024; // Convert KB back to Bytes for formatting
+      
+      document.getElementById("stats-bw-up-1s").textContent = formatBytes(upRate);
+      document.getElementById("stats-bw-up-10s").textContent = formatBytes(sumArray(histBwUp, 10));
+      document.getElementById("stats-bw-up-60s").textContent = formatBytes(sumArray(histBwUp, 60));
+
+      document.getElementById("stats-bw-down-1s").textContent = formatBytes(downRate);
+      document.getElementById("stats-bw-down-10s").textContent = formatBytes(sumArray(histBwDown, 10));
+      document.getElementById("stats-bw-down-60s").textContent = formatBytes(sumArray(histBwDown, 60));
+
+      if (chartTick) {
+        chartTick.update();
+        chartGoroutine.update();
+        chartMem.update();
+        chartBw.update();
+      }
     }
   } catch (e) {
     document.getElementById("stats-goroutines").textContent = "-";
+    document.getElementById("stats-ticktime").textContent = "-";
     document.getElementById("stats-memory").textContent = "-";
-    document.getElementById("stats-bw-up").textContent = "-";
-    document.getElementById("stats-bw-down").textContent = "-";
+    document.getElementById("stats-bw-up-1s").textContent = "-";
+    document.getElementById("stats-bw-up-10s").textContent = "-";
+    document.getElementById("stats-bw-up-60s").textContent = "-";
+    document.getElementById("stats-bw-down-1s").textContent = "-";
+    document.getElementById("stats-bw-down-10s").textContent = "-";
+    document.getElementById("stats-bw-down-60s").textContent = "-";
   }
 }
 
@@ -187,6 +295,7 @@ function main() {
   updateStatus();
   loadServerData();
   loadPlayers();
+  initCharts();
   loadStats();
 
   setInterval(updateStatus, 2000);

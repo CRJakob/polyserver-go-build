@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/uikit.min.css" />
   <script src="js/uikit.min.js"></script>
   <script src="js/uikit-icons.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -22,7 +23,13 @@
 
   <hr />
   <h2 class="uk-light">Server Profiling</h2>
-  <div class="uk-grid-small uk-child-width-1-4@s uk-flex-center uk-text-center" uk-grid>
+  <div class="uk-grid-small uk-child-width-1-5@s uk-flex-center uk-text-center" uk-grid>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <h3 class="uk-card-title">Tick Time</h3>
+            <p id="stats-ticktime" class="uk-text-large uk-text-bold">-</p>
+        </div>
+    </div>
     <div>
         <div class="uk-card uk-card-default uk-card-small uk-card-body">
             <h3 class="uk-card-title">Goroutines</h3>
@@ -38,13 +45,48 @@
     <div>
         <div class="uk-card uk-card-default uk-card-small uk-card-body">
             <h3 class="uk-card-title">Bandwidth (Up)</h3>
-            <p id="stats-bw-up" class="uk-text-large uk-text-bold">-</p>
+            <div class="uk-text-small">
+                <div>1s: <strong id="stats-bw-up-1s">-</strong></div>
+                <div>10s: <strong id="stats-bw-up-10s">-</strong></div>
+                <div>60s: <strong id="stats-bw-up-60s">-</strong></div>
+            </div>
         </div>
     </div>
     <div>
         <div class="uk-card uk-card-default uk-card-small uk-card-body">
             <h3 class="uk-card-title">Bandwidth (Down)</h3>
-            <p id="stats-bw-down" class="uk-text-large uk-text-bold">-</p>
+            <div class="uk-text-small">
+                <div>1s: <strong id="stats-bw-down-1s">-</strong></div>
+                <div>10s: <strong id="stats-bw-down-10s">-</strong></div>
+                <div>60s: <strong id="stats-bw-down-60s">-</strong></div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <div class="uk-margin uk-text-center">
+      <button class="uk-button uk-button-default" uk-toggle="target: #charts-container">Toggle Graphs</button>
+  </div>
+
+  <div id="charts-container" class="uk-margin uk-grid-small uk-child-width-1-2@m" uk-grid hidden>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <canvas id="chart-ticktime"></canvas>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <canvas id="chart-goroutines"></canvas>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <canvas id="chart-memory"></canvas>
+        </div>
+    </div>
+    <div>
+        <div class="uk-card uk-card-default uk-card-small uk-card-body">
+            <canvas id="chart-bandwidth"></canvas>
         </div>
     </div>
   </div>

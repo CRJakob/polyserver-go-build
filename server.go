@@ -14,6 +14,7 @@ import (
 	"polyserver/tracks"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -127,8 +128,9 @@ func runServer() {
 			"stats": fiber.Map{
 				"goroutines": runtime.NumGoroutine(),
 				"memoryAlloc": memStats.Alloc,
-				"bytesSent": gameServer.BytesSent,
-				"bytesReceived": gameServer.BytesReceived,
+				"bytesSent": atomic.LoadUint64(&gameServer.BytesSent),
+				"bytesReceived": atomic.LoadUint64(&gameServer.BytesReceived),
+				"tickTime": atomic.LoadInt64(&gameServer.CurrentTickTime),
 			},
 		})
 	})
