@@ -65,9 +65,15 @@ func (s *GameServer) UpdateGameSession(gs GameSession) {
 	s.GameSession.CurrentTrack = gs.CurrentTrack
 	s.GameSession.MaxPlayers = gs.MaxPlayers
 	s.Batcher.sessionID = s.GameSession.SessionID
+	if s.GameSession.Propagated {
+		// Don't let low IQ individuals shoot themselves in the foot
+		log.Println("Cannot send map twice in one switch!")
+		return
+	}
 	for _, player := range s.Players {
 		player.SendTrack()
 	}
+	s.GameSession.Propagated = true
 }
 
 //

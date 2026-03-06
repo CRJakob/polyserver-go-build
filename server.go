@@ -75,6 +75,7 @@ func runServer() {
 		SwitchingSession: false,
 		CurrentTrack:     defaultTrack,
 		MaxPlayers:       200,
+		Propagated:       false,
 	})
 
 	if err := server.CreateInvite(nil); err != nil {
@@ -185,6 +186,7 @@ func runServer() {
 		}
 		log.Println("Ending session...")
 		gameServer.GameSession.SwitchingSession = true
+		gameServer.GameSession.Propagated = false
 		for _, player := range gameServer.Players {
 			player.Send(gamepackets.EndSessionPacket{})
 		}
