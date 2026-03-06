@@ -108,14 +108,12 @@ func DecodePolyTrack2(prefixedInput string) (*Track, error) {
 
 	// Remove the prefix
 	input := strings.TrimPrefix(prefixedInput, prefix)
-	fmt.Printf("Base62 input length: %d\n", len(input))
 
 	// First base62 decode
 	firstDecoded, err := DecodeBase62(input)
 	if err != nil {
 		return nil, fmt.Errorf("first base62 decode failed: %w", err)
 	}
-	fmt.Printf("First decoded length: %d bytes\n", len(firstDecoded))
 	track.ExportString = prefixedInput
 
 	// First inflate - this should produce a STRING (the JS code uses to: "string")
@@ -123,21 +121,18 @@ func DecodePolyTrack2(prefixedInput string) (*Track, error) {
 	if err != nil {
 		return nil, fmt.Errorf("first decompression failed: %w", err)
 	}
-	fmt.Printf("First inflated (string) length: %d\n", len(firstInflated))
 
 	// Second base62 decode (on the string)
 	secondDecoded, err := DecodeBase62(firstInflated)
 	if err != nil {
 		return nil, fmt.Errorf("second base62 decode failed: %w", err)
 	}
-	fmt.Printf("Second decoded length: %d bytes\n", len(secondDecoded))
 
 	// Second inflate - this produces bytes
 	secondInflated, err := ZlibDecompress(secondDecoded)
 	if err != nil {
 		return nil, fmt.Errorf("second decompression failed: %w", err)
 	}
-	fmt.Printf("Second inflated length: %d bytes\n", len(secondInflated))
 
 	track2, err := parseTrackData(secondInflated)
 
@@ -160,7 +155,6 @@ func parseTrackData(buf []byte) (*Track, error) {
 		return nil, errors.New("buffer too small for name")
 	}
 	name := string(buf[pos : pos+nameLen])
-	fmt.Printf("name: %q\n", name)
 	pos += nameLen
 
 	// Author length + Author (optional)
@@ -179,7 +173,6 @@ func parseTrackData(buf []byte) (*Track, error) {
 		author = &a
 		pos += authorLen
 	}
-	fmt.Printf("author: %v\n", *author)
 
 	// Last modified flag
 	if len(buf) < pos+1 {
@@ -204,7 +197,6 @@ func parseTrackData(buf []byte) (*Track, error) {
 	default:
 		return nil, fmt.Errorf("invalid lastModified flag: %d", lmFlag)
 	}
-	fmt.Printf("lastModified: %v\n", lastModified)
 
 	// Track data (rest of the buffer)
 	trackData, err := decodeTrackData(buf[pos:])
@@ -368,14 +360,12 @@ func decodeTrackData(buf []byte) (*TrackInfo, error) {
 	default:
 		return nil, fmt.Errorf("invalid environment: %d", header)
 	}
-	fmt.Printf("env: %v\n", env)
 
 	// Sun direction
 	if len(buf)-pos < 1 {
 		return nil, errors.New("buffer too small for sun direction")
 	}
 	sunDir := buf[pos]
-	fmt.Printf("sunDir: %v\n", sunDir)
 	pos++
 
 	if sunDir >= 180 {
@@ -396,13 +386,11 @@ func decodeTrackData(buf []byte) (*TrackInfo, error) {
 
 	minZ := int32(buf[pos]) | int32(buf[pos+1])<<8 | int32(buf[pos+2])<<16 | int32(buf[pos+3])<<24
 	pos += 4
-	fmt.Printf("minX: %v, minY: %v, minZ: %v\n", minX, minY, minZ)
 	// Data bytes (bit packing info)
 	if len(buf)-pos < 1 {
 		return nil, errors.New("buffer too small for data bytes")
 	}
 	dataBytes := buf[pos]
-	fmt.Printf("dataBytes: %v\n", dataBytes)
 	pos++
 
 	// Extract bit lengths (m, A, v from JS)

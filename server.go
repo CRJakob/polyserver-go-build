@@ -9,6 +9,7 @@ import (
 	"os"
 	"polyserver/game"
 	gamepackets "polyserver/game/packets"
+	gametrack "polyserver/game/track"
 	"polyserver/signaling"
 	"polyserver/tracks"
 	"strconv"
@@ -37,19 +38,27 @@ func setupLogging() {
 
 func runServer() {
 
-	tracksDir := flag.String("tracks", "tracks/official", "track directory")
+	tracksDir := flag.String("tracks", "tracks", "track directory")
 	controlPort := flag.Int("control-port", 9090, "internal control port")
 
 	flag.Parse()
 
 	log.Println("Game server starting...")
 
-	tracksMap, trackNames := tracks.LoadAllTracks(*tracksDir)
+	tracksMap, trackNames := tracks.LoadTracksFromTop(*tracksDir)
 	if len(trackNames) == 0 {
 		log.Fatal("No tracks found")
 	}
 
-	defaultTrack := tracksMap[trackNames[0]]
+	var defaultTrack *gametrack.Track
+	for k := range tracksMap {
+		for j := range tracksMap[k] {
+			log.Printf("Default map: %s/%s\n", k, j)
+			defaultTrack = tracksMap[k][j]
+			break
+		}
+		break
+	}
 
 	server := signaling.NewServer()
 
@@ -90,10 +99,12 @@ func runServer() {
 		if err != nil {
 			log.Println("Error marshalling session: " + err.Error())
 		}
-		for name, t := range tracksMap {
-			if t == gameServer.GameSession.CurrentTrack {
-				currentName = name
-				break
+		for dirName := range tracksMap {
+			for name, t := range tracksMap[dirName] {
+				if t == gameServer.GameSession.CurrentTrack {
+					currentName = name
+					break
+				}
 			}
 		}
 
@@ -134,30 +145,6 @@ func runServer() {
 			"key":       server.CurrentInviteKey,
 			"timeoutIn": (time.Second * time.Duration(server.InviteTimeout.Unix()-time.Now().Unix())).String(),
 		})
-	})
-
-	app.Post("/track", func(c *fiber.Ctx) error {
-
-		type Req struct {
-			Name string `json:"name"`
-		}
-
-		var req Req
-		if err := c.BodyParser(&req); err != nil {
-			return c.Status(400).SendString("Invalid body")
-		}
-
-		t, ok := tracksMap[req.Name]
-		if !ok {
-			return c.Status(404).SendString("Track not found")
-		}
-
-		cur := gameServer.GameSession
-		cur.CurrentTrack = t
-
-		log.Println("Track switched to", req.Name)
-
-		return c.SendStatus(204)
 	})
 
 	app.Post("/kick", func(c *fiber.Ctx) error {
@@ -221,6 +208,7 @@ func runServer() {
 
 		type Req struct {
 			GameMode   game.GameMode `json:"gamemode"`
+			TrackDir   string        `json:"trackDir"`
 			Track      string        `json:"track"`
 			MaxPlayers int           `json:"maxPlayers"`
 		}
@@ -229,7 +217,7 @@ func runServer() {
 		if err := c.BodyParser(&req); err != nil {
 			return c.Status(400).SendString("Invalid body")
 		}
-		t, ok := tracksMap[req.Track]
+		t, ok := tracksMap[req.TrackDir][req.Track]
 
 		if !ok {
 			log.Println("Track " + req.Track + " not found.")

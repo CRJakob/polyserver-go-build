@@ -23,8 +23,6 @@ func DecodeBase62(input string) ([]byte, error) {
 	outPos := 0
 	bytesOut := make([]byte, 0)
 
-	fmt.Printf("Decoding string of length %d\n", len(input))
-
 	for i, ch := range input {
 		if int(ch) >= len(decodeValues) {
 			return nil, fmt.Errorf("invalid Base62 char at position %d: %c (code %d)", i, ch, ch)
@@ -49,8 +47,6 @@ func DecodeBase62(input string) ([]byte, error) {
 		decodeChars(&bytesOut, outPos, valueLen, byte(charValue), i == len(input)-1)
 		outPos += valueLen
 	}
-
-	fmt.Printf("Decoded to %d bytes\n", len(bytesOut))
 
 	return bytesOut, nil
 }
@@ -94,10 +90,6 @@ func decodeChars(bytes *[]byte, bitIndex int, valueLen int, charValue byte, isLa
 
 // ZlibDecompress decompresses zlib-compressed data
 func ZlibDecompress(data []byte) ([]byte, error) {
-	fmt.Printf("Attempting to decompress %d bytes\n", len(data))
-	if len(data) > 0 {
-		fmt.Printf("First byte: 0x%x\n", data[0])
-	}
 
 	// Try zlib first
 	r, err := zlib.NewReader(bytes.NewReader(data))

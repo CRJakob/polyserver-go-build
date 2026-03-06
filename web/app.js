@@ -104,7 +104,6 @@ async function sendSession() {
 }
 
 async function createInvite(regenerate) {
-  console.log("INVITE")
   const r = await fetch("/api/invite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,16 +118,6 @@ async function createInvite(regenerate) {
   inviteKeyBox.textContent = data.inviteKey;
   timeoutInBox.textContent = data.timeoutIn;
   await loadServerData();
-}
-
-async function setTrack() {
-  const name = document.getElementById("trackSelect").value;
-
-  await fetch("/api/tracks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
 }
 
 // ---------- PLAYERS ----------

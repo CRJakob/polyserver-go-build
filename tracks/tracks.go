@@ -54,3 +54,25 @@ func LoadAllTracks(dir string) (map[string]*gametrack.Track, []string) {
 
 	return out, names
 }
+
+func LoadTracksFromTop(dir string) (map[string]map[string]*gametrack.Track, map[string][]string) {
+	out := map[string]map[string]*gametrack.Track{}
+	names := map[string][]string{}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		log.Printf("Could not read tracks directory %q: %v", dir, err)
+		return out, names
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			tracksMap, trackNames := LoadAllTracks(filepath.Join(dir, e.Name()))
+			out[e.Name()] = tracksMap
+			names[e.Name()] = trackNames
+		}
+		log.Println("File found at top level directory, skipping...")
+	}
+
+	return out, names
+}
