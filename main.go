@@ -171,6 +171,10 @@ func startSupervisorDashboard(port int, cmd *exec.Cmd, controlPort int) func() {
 		return proxyJSON(c, "POST", base+"/session/set")
 	})
 
+	app.Post("/api/reloadTracks", func(c *fiber.Ctx) error {
+		return proxyJSON(c, "POST", base+"/reloadTracks")
+	})
+
 	app.Get("/api/players", func(c *fiber.Ctx) error {
 		return proxyJSON(c, "GET", base+"/players")
 	})

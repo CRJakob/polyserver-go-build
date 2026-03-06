@@ -55,8 +55,12 @@
 
 
   <h2 class="uk-light">Session Control</h2>
+  
+  <h3 class="uk-light">Quick Settings</h3>
+  <button class="uk-button uk-button-primary" onclick="reloadTracks()">Reload Tracks</button>
+
+  <h3 class="uk-light">Manual Controls</h3>
   <h3 class="uk-light">Map: </h3>
-  <p id="currentMap">Current Map: <b>-</b></p>
   <select class="uk-select uk-width-1-4" id="trackSelectSession"></select>
 
   <h3 class="uk-light">Gamemode: </h3>
@@ -68,11 +72,6 @@
 
   <input class="uk-input uk-width-1-4" id="maxPlayers"><br><br>
 
-  <h3 class="uk-light">Auto Switch</h3>
-  <input class="uk-input uk-light uk-width-1-6" placeholder="timeout (s)">
-  <button class="uk-button uk-button-primary" onclick="console.log(`switch`)" id="switchSessionBtn">Switch Session</button><br>
-  
-  <h3 class="uk-light">Manual Controls</h3>
   <button class="uk-button uk-button-primary" onclick="startSession()" id="startSessionBtn">Start Session</button>
   <button class="uk-button uk-button-primary" onclick="sendSession()" id="sendSessionBtn">Send to Server</button>
   <button class="uk-button uk-button-danger" onclick="endSession()" id="endSessionBtn">End Session</button>

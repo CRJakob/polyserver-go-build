@@ -241,6 +241,12 @@ func runServer() {
 		return c.SendStatus(204)
 	})
 
+	app.Post("/reloadTracks", func(c *fiber.Ctx) error {
+		log.Println("Reloading tracks...")
+		tracksMap, trackNames = tracks.LoadTracksFromTop(*tracksDir)
+		return c.SendStatus(204)
+	})
+
 	app.Get("/players", func(c *fiber.Ctx) error {
 
 		list := []fiber.Map{}

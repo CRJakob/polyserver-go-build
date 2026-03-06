@@ -33,10 +33,8 @@ async function loadServerData() {
   try {
     const r = await fetch("/api/tracks");
     const data = await r.json();
-    console.log(data)
     let sessionData = JSON.parse(data.session);
 
-    document.getElementById("currentMap").innerHTML = `Current Map: <b>${data.currentDir}/${data.current}</b>`
     inviteBox.textContent = data.invite || "-";
     inviteKeyBox.textContent = data.inviteKey || "-";
     timeoutInBox.textContent = data.timeoutIn || "-";
@@ -59,7 +57,7 @@ async function loadServerData() {
       <p>Session ID: <strong>${sessionData["sessionId"]}</strong></p>
       <p>Session Gamemode: <strong>${sessionData["gamemode"] == 1 ? "Competitive" : "Casual"}</strong></p>
       <p>Max players: <strong>${sessionData["maxPlayers"]}</strong></p>
-      <p>Switching sessions? <strong>${sessionData["switchingSession"] ? "Yes" : "No"}</strong></p>
+      <p>Current Map: <b>${data.currentDir}/${data.current}</b></p>
       `;
     document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
     document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"] || sessionData["propagated"]
@@ -112,6 +110,13 @@ async function createInvite(regenerate) {
   inviteBox.textContent = data.invite;
   inviteKeyBox.textContent = data.inviteKey;
   timeoutInBox.textContent = data.timeoutIn;
+  await loadServerData();
+}
+
+async function reloadTracks() {
+  await fetch("/api/reloadTracks", {
+    method: "POST"
+  });
   await loadServerData();
 }
 
