@@ -134,8 +134,7 @@ func combineByteSlices(slices [][]byte) []byte {
 func compressWithSettings(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 
-	// Use BestCompression (level 9)
-	writer, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	writer, err := zlib.NewWriterLevel(&buf, zlib.DefaultCompression)
 	if err != nil {
 		return nil, err
 	}
