@@ -19,7 +19,7 @@ type GameServer struct {
 	Factory         gamepackets.PacketFactory
 	GameSession     *GameSession
 	Batcher         *CarUpdateBatcher
-	
+
 	// Profiling Stats
 	BytesSent       uint64
 	BytesReceived   uint64
@@ -201,11 +201,21 @@ func (server *GameServer) sendPings() {
 func (server *GameServer) sendPingDatas() {
 	pings := server.getPlayerPings()
 
+	packet := gamepackets.PingDataPacket{
+		HostID:      0,
+		PlayerPings: pings,
+	}
+
+	data, err := packet.Marshal()
+	if err != nil {
+		log.Println("Error marshaling ping data:", err)
+		return
+	}
+
+	server.playersLock.Lock()
+	defer server.playersLock.Unlock()
 	for _, player := range server.Players {
-		player.SendUnreliable(gamepackets.PingDataPacket{
-			HostID:      0,
-			PlayerPings: pings,
-		})
+		player.SendRawUnreliable(data)
 	}
 }
 
@@ -256,17 +266,20 @@ func (server *GameServer) UpdateCarStates() {
 	server.playersLock.Unlock()
 
 	// For each player, collect their unsent car states, and clear them to prevent memory leak
-	playerStates := make(map[uint32][]*CarStateExtended)
+	playerStates := make(map[uint32][][]byte)
 	for _, p := range playersCopy {
 		p.CSLock.Lock()
 		if len(p.UnsentCarStates) > 0 {
-			var states []*CarStateExtended
+			var states [][]byte
 			for _, carState := range p.UnsentCarStates {
-				states = append(states, &CarStateExtended{
+				encoded, err := encodeCarStateExtended(&CarStateExtended{
 					ID:           p.ID,
 					ResetCounter: p.ResetCounter,
 					CarState:     carState,
 				})
+				if err == nil {
+					states = append(states, encoded)
+				}
 			}
 			playerStates[p.ID] = states
 			p.UnsentCarStates = p.UnsentCarStates[:0] // Clear slice to stop infinite growth
@@ -277,7 +290,7 @@ func (server *GameServer) UpdateCarStates() {
 	// Now distribute states to everyone else
 	var wg sync.WaitGroup
 	for _, player := range playersCopy {
-		var unsentCarStates []*CarStateExtended
+		var unsentCarStates [][]byte
 		for playerID, states := range playerStates {
 			if playerID != player.ID {
 				unsentCarStates = append(unsentCarStates, states...)
@@ -285,7 +298,7 @@ func (server *GameServer) UpdateCarStates() {
 		}
 
 		wg.Add(1)
-		go func(p *Player, states []*CarStateExtended) {
+		go func(p *Player, states [][]byte) {
 			defer wg.Done()
 			server.Batcher.SendCarUpdates(p, states)
 		}(player, unsentCarStates)

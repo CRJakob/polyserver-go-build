@@ -47,26 +47,13 @@ func encodeCarStateExtended(extended *CarStateExtended) ([]byte, error) {
 }
 
 // SendCarUpdates attempts to send a batch of car states, splitting if necessary
-func (b *CarUpdateBatcher) SendCarUpdates(player *Player, carStates []*CarStateExtended) error {
+func (b *CarUpdateBatcher) SendCarUpdates(player *Player, carStates [][]byte) error {
 	if len(carStates) == 0 {
 		return nil
 	}
 
-	// Encode all car states to bytes with their headers
-	var stateBytes [][]byte
-	for _, state := range carStates {
-		data, err := encodeCarStateExtended(state)
-		if err != nil {
-			return fmt.Errorf("failed to encode car state: %w", err)
-		}
-		stateBytes = append(stateBytes, data)
-	}
-
-	// Combine all car states into one byte array
-	combined := combineByteSlices(stateBytes)
-
 	// Compress with zlib settings (level 9)
-	compressed, err := compressWithSettings(combined)
+	compressed, err := compressWithSettings(carStates)
 	if err != nil {
 		return fmt.Errorf("failed to compress car states: %w", err)
 	}
@@ -94,7 +81,7 @@ func (b *CarUpdateBatcher) sendSinglePacket(player *Player, compressed []byte) e
 }
 
 // splitAndSend splits the car states and tries again recursively
-func (b *CarUpdateBatcher) splitAndSend(player *Player, carStates []*CarStateExtended) error {
+func (b *CarUpdateBatcher) splitAndSend(player *Player, carStates [][]byte) error {
 	if len(carStates) <= 1 {
 		return fmt.Errorf("cannot split car update data further - single item still too large")
 	}
@@ -146,7 +133,7 @@ var bufferPool = sync.Pool{
 	},
 }
 
-func compressWithSettings(data []byte) ([]byte, error) {
+func compressWithSettings(dataChunks [][]byte) ([]byte, error) {
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufferPool.Put(buf)
@@ -155,9 +142,11 @@ func compressWithSettings(data []byte) ([]byte, error) {
 	writer.Reset(buf)
 	defer zlibWriterPool.Put(writer)
 
-	if _, err := writer.Write(data); err != nil {
-		writer.Close()
-		return nil, err
+	for _, chunk := range dataChunks {
+		if _, err := writer.Write(chunk); err != nil {
+			writer.Close()
+			return nil, err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return nil, err

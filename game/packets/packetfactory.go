@@ -25,6 +25,7 @@ func (f *PacketFactory) FromBytes(data []byte) (HostPacket, error) {
 		carState, _, err := DecodeCarState(data[9:])
 		if err != nil {
 			log.Println("Error decoding car state: " + err.Error())
+			return nil, err
 		}
 		return HostCarUpdatePacket{
 			SessionID:    binary.LittleEndian.Uint32(data[1:5]),

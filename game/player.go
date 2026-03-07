@@ -57,13 +57,13 @@ func (player *Player) HandleMessage(data []byte) {
 	switch packet.Type() {
 	case gamepackets.Pong:
 		pongPacket, _ := packet.(gamepackets.PongPacket)
-		// log.Printf("Received pong: %v", +pongPacket.PingId)
 		player.PPLock.Lock()
 		defer player.PPLock.Unlock()
 		for index, pingPacket := range player.PingPackages {
 			if pingPacket.PingId == int(pongPacket.PingId) {
 				player.Ping = int(time.Now().UnixMilli() - pingPacket.SentTime.UnixMilli())
-				player.PingPackages = append(player.PingPackages[:index], player.PingPackages[index+1:]...)
+				player.PingPackages[index] = player.PingPackages[len(player.PingPackages)-1]
+				player.PingPackages = player.PingPackages[:len(player.PingPackages)-1]
 				break
 			}
 		}
@@ -100,10 +100,11 @@ func (player *Player) HandleMessage(data []byte) {
 	case gamepackets.HostCarReset:
 		resetPacket, _ := packet.(gamepackets.HostCarResetPacket)
 		if resetPacket.SessionID == player.Server.GameSession.SessionID && resetPacket.ResetCounter > player.ResetCounter {
-			player.ResetCounter = resetPacket.ResetCounter
-
 			player.CSLock.Lock()
-			player.UnsentCarStates = make([]gamepackets.CarState, 0)
+			if resetPacket.ResetCounter > player.ResetCounter {
+				player.ResetCounter = resetPacket.ResetCounter
+				player.UnsentCarStates = make([]gamepackets.CarState, 0)
+			}
 			player.CSLock.Unlock()
 
 			for _, p := range player.Server.Players {
@@ -115,8 +116,17 @@ func (player *Player) HandleMessage(data []byte) {
 				}
 			}
 		}
-		log.Printf("Reset packet: %v\n", resetPacket)
 	}
+}
+
+func (player *Player) SendRawReliable(data []byte) error {
+	atomic.AddUint64(&player.Server.BytesSent, uint64(len(data)))
+	return player.Session.ReliableDC.Send(data)
+}
+
+func (player *Player) SendRawUnreliable(data []byte) error {
+	atomic.AddUint64(&player.Server.BytesSent, uint64(len(data)))
+	return player.Session.UnreliableDC.Send(data)
 }
 
 func (player *Player) Send(packet gamepackets.PlayerPacket) error {

@@ -23,7 +23,8 @@
     <button class="uk-button uk-button-danger" onclick="stopServer()">Stop Server</button>
 
     <hr />
-    <h2 class="uk-light">Server Profiling</h2>
+    <h2 class="uk-light">Server Profiling <button class="uk-button uk-button-default uk-button-small uk-margin-small-left" uk-toggle="target: #charts-container">Toggle</button></h2>
+
     <div class="uk-grid-small uk-child-width-1-5@s uk-flex-center uk-text-center" uk-grid>
         <div>
             <div class="uk-card uk-card-default uk-card-small uk-card-body glass-card">
@@ -65,9 +66,6 @@
         </div>
     </div>
 
-    <div class="uk-margin uk-text-center">
-        <button class="uk-button uk-button-default" uk-toggle="target: #charts-container">Toggle Graphs</button>
-    </div>
 
     <div id="charts-container" class="uk-margin uk-grid-small uk-child-width-1-2@m" uk-grid hidden>
         <div>
