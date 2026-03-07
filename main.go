@@ -41,7 +41,7 @@ func proxyJSON(c *fiber.Ctx, method, url string) error {
 	return c.Status(resp.StatusCode).Send(body)
 }
 
-func runLauncher(port int, controlPort int) {
+func runLauncher(port int, controlPort int, address string, controlAddress string) {
 
 	log.Println("Launcher started")
 
@@ -88,7 +88,7 @@ func runLauncher(port int, controlPort int) {
 	go io.Copy(os.Stdout, stdout)
 	go io.Copy(os.Stderr, stderr)
 
-	stopDashboard := startSupervisorDashboard(port, cmd, controlPort)
+	stopDashboard := startSupervisorDashboard(port, cmd, controlPort, address, controlAddress)
 
 	go func() {
 		err := cmd.Wait()
@@ -100,7 +100,7 @@ func runLauncher(port int, controlPort int) {
 	_ = stopDashboard
 }
 
-func startSupervisorDashboard(port int, cmd *exec.Cmd, controlPort int) func() {
+func startSupervisorDashboard(port int, cmd *exec.Cmd, controlPort int, address string, controlAddress string) func() {
 
 	app := fiber.New()
 
@@ -140,7 +140,7 @@ func startSupervisorDashboard(port int, cmd *exec.Cmd, controlPort int) func() {
 		return c.SendStatus(204)
 	})
 
-	base := fmt.Sprintf("http://127.0.0.1:%d", controlPort)
+	base := fmt.Sprintf("http://%s:%d", controlAddress, controlPort)
 
 	app.Get("/api/invite", func(c *fiber.Ctx) error {
 		return proxyJSON(c, "GET", base+"/status")
@@ -193,10 +193,10 @@ func startSupervisorDashboard(port int, cmd *exec.Cmd, controlPort int) func() {
 		return proxyJSON(c, "GET", base+"/players")
 	})
 
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("%s:%d", address, port)
 
 	go func() {
-		log.Println("Dashboard running on http://localhost" + addr)
+		log.Println("Dashboard running on http://" + addr)
 		if err := app.Listen(addr); err != nil {
 			log.Println(err)
 		}
@@ -217,6 +217,8 @@ func main() {
 
 	launcherFlags := flag.NewFlagSet("launcher", flag.ContinueOnError)
 
+	address := launcherFlags.String("address", "127.0.0.1", "dashboard address")
+	controlAddress := launcherFlags.String("control-address", "127.0.0.1", "server control address")
 	portFlag := launcherFlags.Int("port", 8080, "dashboard port")
 	controlPort := launcherFlags.Int("control-port", 9090, "server control port")
 
@@ -224,6 +226,6 @@ func main() {
 	if err != nil {
 		log.Fatalln("Failed parsing flags!")
 	}
-	runLauncher(*portFlag, *controlPort)
+	runLauncher(*portFlag, *controlPort, *address, *controlAddress)
 
 }
