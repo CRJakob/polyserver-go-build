@@ -14,6 +14,7 @@ import (
 	"polyserver/tracks"
 	"runtime"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +38,17 @@ func setupLogging() {
 	// Optional: include date + time + file:line
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
+
+// Auto Playlist Settings
+var (
+	autoRotateMu       sync.Mutex
+	autoRotateEnabled  bool
+	autoRotateFolder   string
+	autoRotateInterval int // seconds
+	autoRotateNextTime time.Time
+	autoRotateIndex    int
+	autoRotateState    string = "Stopped"
+)
 
 func runServer() {
 
@@ -117,6 +129,14 @@ func runServer() {
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
 
+		autoRotateMu.Lock()
+		arEnabled := autoRotateEnabled
+		arFolder := autoRotateFolder
+		arInterval := autoRotateInterval
+		arState := autoRotateState
+		arTimeLeft := int(time.Until(autoRotateNextTime).Seconds())
+		autoRotateMu.Unlock()
+
 		return c.JSON(fiber.Map{
 			"invite":     server.CurrentInvite,
 			"inviteKey":  server.CurrentInviteKey,
@@ -131,6 +151,13 @@ func runServer() {
 				"bytesSent": atomic.LoadUint64(&gameServer.BytesSent),
 				"bytesReceived": atomic.LoadUint64(&gameServer.BytesReceived),
 				"tickTime": atomic.LoadInt64(&gameServer.CurrentTickTime),
+			},
+			"autorotate": fiber.Map{
+				"enabled": arEnabled,
+				"folder": arFolder,
+				"interval": arInterval,
+				"state": arState,
+				"timeLeft": arTimeLeft,
 			},
 		})
 	})
@@ -256,6 +283,45 @@ func runServer() {
 	app.Post("/reloadTracks", func(c *fiber.Ctx) error {
 		log.Println("Reloading tracks...")
 		tracksMap, trackNames = tracks.LoadTracksFromTop(*tracksDir)
+		return c.SendStatus(204)
+	})
+
+	app.Post("/autorotate/start", func(c *fiber.Ctx) error {
+		type Req struct {
+			Folder   string `json:"folder"`
+			Interval int    `json:"interval"`
+		}
+		var req Req
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+
+		autoRotateMu.Lock()
+		autoRotateEnabled = true
+		autoRotateFolder = req.Folder
+		autoRotateInterval = req.Interval
+		autoRotateState = "Playing"
+		autoRotateNextTime = time.Now().Add(time.Duration(req.Interval) * time.Second)
+		autoRotateIndex = -1 // Reset sequence to try to pick map 0 on next map transition
+		autoRotateMu.Unlock()
+
+		return c.SendStatus(204)
+	})
+
+	app.Post("/autorotate/stop", func(c *fiber.Ctx) error {
+		autoRotateMu.Lock()
+		autoRotateEnabled = false
+		autoRotateState = "Stopped"
+		autoRotateMu.Unlock()
+		return c.SendStatus(204)
+	})
+
+	app.Post("/autorotate/skip", func(c *fiber.Ctx) error {
+		autoRotateMu.Lock()
+		if autoRotateEnabled && autoRotateState == "Playing" {
+			autoRotateNextTime = time.Now() // Force trigger next tick execution
+		}
+		autoRotateMu.Unlock()
 		return c.SendStatus(204)
 	})
 

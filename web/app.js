@@ -165,6 +165,8 @@ async function stopServer() {
 // ---------- INVITE + TRACKS ----------
 
 let currentTracksData = {};
+let lastServerMaxPlayers = null;
+let lastServerGamemode = null;
 
 async function loadServerData() {
   try {
@@ -201,6 +203,54 @@ async function loadServerData() {
         selectSession.value = oldTrack;
       }
     }
+    
+    if (sessionData["maxPlayers"] !== lastServerMaxPlayers) {
+      document.getElementById("maxPlayers").value = sessionData["maxPlayers"];
+      lastServerMaxPlayers = sessionData["maxPlayers"];
+    }
+
+    if (sessionData["gamemode"] !== lastServerGamemode) {
+      let index = 0;
+      for (let child of document.getElementById("gamemodePicker").children) {
+        if (child.children[0]) {
+          child.children[0].checked = (index === sessionData["gamemode"]);
+        }
+        index++;
+      }
+      lastServerGamemode = sessionData["gamemode"];
+    }
+
+    // Auto-Rotate UI Sync
+    const autoDir = document.getElementById("autoRotateFolderSelect");
+    if (autoDir.children.length == 0 || tracksChanged) {
+      let oldAutoDir = autoDir.value;
+      autoDir.innerHTML = "";
+      for (let folder in data.tracks) {
+        const opt = document.createElement("option");
+        opt.value = folder;
+        opt.textContent = folder;
+        autoDir.appendChild(opt);
+      }
+      if (oldAutoDir && currentTracksData[oldAutoDir]) {
+        autoDir.value = oldAutoDir;
+      }
+    }
+
+    if (data.autorotate) {
+        document.getElementById("btnAutoStart").disabled = data.autorotate.enabled;
+        document.getElementById("btnAutoStop").disabled = !data.autorotate.enabled;
+        document.getElementById("btnAutoSkip").disabled = !data.autorotate.enabled;
+
+        const statStr = document.getElementById("autoRotateStatus");
+        if (data.autorotate.enabled) {
+            statStr.textContent = `${data.autorotate.state} (Next in ${data.autorotate.timeLeft}s)`;
+            statStr.className = "uk-text-success uk-text-bold";
+        } else {
+            statStr.textContent = "Stopped";
+            statStr.className = "uk-text-bold";
+        }
+    }
+
     let sessionInfoDiv = document.getElementById("sessionInfo")
     sessionInfoDiv.innerHTML = `
       <p>Session ID: <strong>${sessionData["sessionId"]}</strong></p>
@@ -282,6 +332,33 @@ async function quickApplySession() {
   }
 }
 
+// ---------- AUTO ROTATE ----------
+
+async function startAutoRotate() {
+  const folder = document.getElementById("autoRotateFolderSelect").value;
+  const interval = parseInt(document.getElementById("autoRotateInterval").value);
+  if (!folder || isNaN(interval) || interval < 5) return alert("Invalid interval (minimum 5s) or folder");
+
+  await fetch("/api/autorotate/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folder: folder, interval: interval }),
+  });
+  await loadServerData();
+}
+
+async function stopAutoRotate() {
+  await fetch("/api/autorotate/stop", { method: "POST" });
+  await loadServerData();
+}
+
+async function skipAutoRotate() {
+  await fetch("/api/autorotate/skip", { method: "POST" });
+  await loadServerData();
+}
+
+// ---------- INVITES ----------
+
 async function createInvite(regenerate) {
   const r = await fetch("/api/invite", {
     method: "POST",
@@ -314,6 +391,7 @@ async function loadPlayers() {
     const data = await r.json();
 
     const tbody = document.querySelector("#players tbody");
+    document.getElementById("playerCountBadge").textContent = data.players.length;
     tbody.innerHTML = "";
     data.players.forEach((p) => {
       const tr = document.createElement("tr");

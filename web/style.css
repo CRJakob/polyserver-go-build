@@ -1,8 +1,40 @@
 body {
-  font-family: system-ui, sans-serif;
-  background: #0f1115;
-  color: #e5e7eb;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(-45deg, #0b1a2e, #140d24, #081e36, #140c26);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+  color: #e2e8f0;
   padding: 2rem;
+  min-height: 100vh;
+}
+
+@keyframes gradientBG {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.5) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.glass-card h3,
+.glass-card p,
+.glass-card strong,
+.glass-card div {
+  color: #f1f5f9 !important;
 }
 
 h1 {
