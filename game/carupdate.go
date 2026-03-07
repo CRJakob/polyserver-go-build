@@ -5,8 +5,8 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
-	"sync"
 	gamepackets "polyserver/game/packets"
+	"sync"
 )
 
 // CarUpdateBatcher handles batching and splitting of car updates
@@ -135,7 +135,7 @@ func combineByteSlices(slices [][]byte) []byte {
 var zlibWriterPool = sync.Pool{
 	New: func() interface{} {
 		// Start with an empty writer; reset it before use
-		w, _ := zlib.NewWriterLevel(nil, zlib.DefaultCompression)
+		w, _ := zlib.NewWriterLevel(nil, zlib.BestCompression)
 		return w
 	},
 }
