@@ -48,6 +48,7 @@ var (
 	autoRotateNextTime time.Time
 	autoRotateIndex    int
 	autoRotateState    string = "Stopped"
+	autoRotateTimer    *time.Timer
 )
 
 func runServer() {
@@ -98,6 +99,74 @@ func runServer() {
 
 	log.Println("Initial invite:", server.CurrentInvite)
 
+	// ---- AUTO ROTATE SEQUENCE ----
+
+	var performAutoRotate func()
+	performAutoRotate = func() {
+		autoRotateMu.Lock()
+		if !autoRotateEnabled {
+			autoRotateMu.Unlock()
+			return
+		}
+
+		tracksInFolder := trackNames[autoRotateFolder]
+		if len(tracksInFolder) == 0 {
+			autoRotateMu.Unlock()
+			return
+		}
+
+		autoRotateIndex++
+		if autoRotateIndex >= len(tracksInFolder) {
+			autoRotateIndex = 0
+		}
+		nextTrackName := tracksInFolder[autoRotateIndex]
+		nextTrack := tracksMap[autoRotateFolder][nextTrackName]
+
+		autoRotateState = "Transitioning"
+		autoRotateMu.Unlock()
+
+		if !gameServer.GameSession.SwitchingSession {
+			gameServer.GameSession.SwitchingSession = true
+			gameServer.GameSession.Propagated = false
+			for _, player := range gameServer.Players {
+				player.Send(gamepackets.EndSessionPacket{})
+			}
+		}
+
+		gameServer.UpdateGameSession(game.GameSession{
+			SessionID:        gameServer.GameSession.SessionID + 1,
+			GameMode:         gameServer.GameSession.GameMode,
+			SwitchingSession: false,
+			CurrentTrack:     nextTrack,
+			MaxPlayers:       gameServer.GameSession.MaxPlayers,
+			Propagated:       false,
+		})
+
+		time.AfterFunc(2*time.Second, func() {
+			autoRotateMu.Lock()
+			if !autoRotateEnabled {
+				autoRotateMu.Unlock()
+				return
+			}
+			autoRotateState = "Playing"
+			autoRotateNextTime = time.Now().Add(time.Duration(autoRotateInterval) * time.Second)
+			autoRotateMu.Unlock()
+
+			for _, player := range gameServer.Players {
+				player.StartNewSession()
+			}
+
+			autoRotateMu.Lock()
+			if autoRotateTimer != nil {
+				autoRotateTimer.Stop()
+			}
+			if autoRotateEnabled {
+				autoRotateTimer = time.AfterFunc(time.Duration(autoRotateInterval)*time.Second, performAutoRotate)
+			}
+			autoRotateMu.Unlock()
+		})
+	}
+
 	// ---- CONTROL API ----
 
 	app := fiber.New()
@@ -146,17 +215,17 @@ func runServer() {
 			"currentDir": currentDir,
 			"session":    string(currentSession),
 			"stats": fiber.Map{
-				"goroutines": runtime.NumGoroutine(),
-				"memoryAlloc": memStats.Alloc,
-				"bytesSent": atomic.LoadUint64(&gameServer.BytesSent),
+				"goroutines":    runtime.NumGoroutine(),
+				"memoryAlloc":   memStats.Alloc,
+				"bytesSent":     atomic.LoadUint64(&gameServer.BytesSent),
 				"bytesReceived": atomic.LoadUint64(&gameServer.BytesReceived),
-				"tickTime": atomic.LoadInt64(&gameServer.CurrentTickTime),
+				"tickTime":      atomic.LoadInt64(&gameServer.CurrentTickTime),
 			},
 			"autorotate": fiber.Map{
-				"enabled": arEnabled,
-				"folder": arFolder,
+				"enabled":  arEnabled,
+				"folder":   arFolder,
 				"interval": arInterval,
-				"state": arState,
+				"state":    arState,
 				"timeLeft": arTimeLeft,
 			},
 		})
@@ -302,7 +371,14 @@ func runServer() {
 		autoRotateInterval = req.Interval
 		autoRotateState = "Playing"
 		autoRotateNextTime = time.Now().Add(time.Duration(req.Interval) * time.Second)
+
 		autoRotateIndex = -1 // Reset sequence to try to pick map 0 on next map transition
+
+		if autoRotateTimer != nil {
+			autoRotateTimer.Stop()
+		}
+		autoRotateTimer = time.AfterFunc(time.Duration(req.Interval)*time.Second, performAutoRotate)
+
 		autoRotateMu.Unlock()
 
 		return c.SendStatus(204)
@@ -312,6 +388,9 @@ func runServer() {
 		autoRotateMu.Lock()
 		autoRotateEnabled = false
 		autoRotateState = "Stopped"
+		if autoRotateTimer != nil {
+			autoRotateTimer.Stop()
+		}
 		autoRotateMu.Unlock()
 		return c.SendStatus(204)
 	})
@@ -320,6 +399,10 @@ func runServer() {
 		autoRotateMu.Lock()
 		if autoRotateEnabled && autoRotateState == "Playing" {
 			autoRotateNextTime = time.Now() // Force trigger next tick execution
+			if autoRotateTimer != nil {
+				autoRotateTimer.Stop()
+			}
+			time.AfterFunc(0, performAutoRotate)
 		}
 		autoRotateMu.Unlock()
 		return c.SendStatus(204)
