@@ -87,12 +87,23 @@ function initCharts() {
 
 let lastBytesSent = 0;
 let lastBytesReceived = 0;
+let lastStatsTime = 0;
 
 async function loadStats() {
   try {
     const r = await fetch("/api/stats");
     const data = await r.json();
     if (data && data.stats) {
+      const nowTs = Date.now();
+      let timeDelta = 1.0; // Assume 1s if first run
+      if (lastStatsTime > 0) {
+          timeDelta = (nowTs - lastStatsTime) / 1000;
+      }
+      lastStatsTime = nowTs;
+
+      // Minimum delta to avoid division by zero or jitter
+      if (timeDelta < 0.1) timeDelta = 0.1;
+
       document.getElementById("stats-goroutines").textContent = data.stats.goroutines;
       document.getElementById("stats-ticktime").textContent = (data.stats.tickTime / 1000).toFixed(2) + " ms";
       document.getElementById("stats-memory").textContent = formatBytes(data.stats.memoryAlloc);
@@ -105,34 +116,37 @@ async function loadStats() {
       histGoroutine.push(data.stats.goroutines); histGoroutine.shift();
       histMem.push(data.stats.memoryAlloc / 1024 / 1024); histMem.shift(); // MB
       
-      let upRate = 0;
-      let downRate = 0;
+      let upRateTotal = 0;
+      let downRateTotal = 0;
       if ((lastBytesSent > 0 || lastBytesReceived > 0) && data.stats.bytesSent >= lastBytesSent && data.stats.bytesReceived >= lastBytesReceived) {
-          upRate = data.stats.bytesSent - lastBytesSent;
-          downRate = data.stats.bytesReceived - lastBytesReceived;
+          upRateTotal = data.stats.bytesSent - lastBytesSent;
+          downRateTotal = data.stats.bytesReceived - lastBytesReceived;
       }
       lastBytesSent = data.stats.bytesSent;
       lastBytesReceived = data.stats.bytesReceived;
 
-      histBwUp.push(upRate / 1024); histBwUp.shift(); // KB/s
-      histBwDown.push(downRate / 1024); histBwDown.shift(); // KB/s
+      // Normalize bandwidth over the actual time elapsed
+      const upRateSec = upRateTotal / timeDelta;
+      const downRateSec = downRateTotal / timeDelta;
+
+      // If we've been away for more than 1.5s, smear the results across history to avoid gaps/spikes
+      // This is basic: just fill the last 1s history slot. 
+      // A better smearing would fill 'timeDelta' slots, but since we run every 1s, 
+      // we'll just push the normalized rate.
+      histBwUp.push(upRateSec / 1024); histBwUp.shift(); // KB/s
+      histBwDown.push(downRateSec / 1024); histBwDown.shift(); // KB/s
 
       // Update multi-bandwidth labels (show average rate instead of total sum)
       const avgArray = (arr, numItems) => {
         const lastItems = arr.slice(-numItems);
-        // We only count non-null samples if we just started
-        const count = lastItems.filter(v => v !== undefined).length || 1; 
-        // Actually, hist arrays are initialized with 0, and we take exactly numItems
-        // but if we just pushed and shifted, the length remains 60.
-        // The most accurate way is to just divide by numItems for the window.
         return (lastItems.reduce((a, b) => a + b, 0) / numItems) * 1024;
       }
       
-      document.getElementById("stats-bw-up-1s").textContent = formatBytes(upRate) + "/s";
+      document.getElementById("stats-bw-up-1s").textContent = formatBytes(upRateSec) + "/s";
       document.getElementById("stats-bw-up-10s").textContent = formatBytes(avgArray(histBwUp, 10)) + "/s";
       document.getElementById("stats-bw-up-60s").textContent = formatBytes(avgArray(histBwUp, 60)) + "/s";
 
-      document.getElementById("stats-bw-down-1s").textContent = formatBytes(downRate) + "/s";
+      document.getElementById("stats-bw-down-1s").textContent = formatBytes(downRateSec) + "/s";
       document.getElementById("stats-bw-down-10s").textContent = formatBytes(avgArray(histBwDown, 10)) + "/s";
       document.getElementById("stats-bw-down-60s").textContent = formatBytes(avgArray(histBwDown, 60)) + "/s";
 
@@ -144,6 +158,8 @@ async function loadStats() {
       }
     }
   } catch (e) {
+    // Reset if failed to stay consistent
+    lastStatsTime = 0;
     document.getElementById("stats-goroutines").textContent = "-";
     document.getElementById("stats-ticktime").textContent = "-";
     document.getElementById("stats-memory").textContent = "-";
