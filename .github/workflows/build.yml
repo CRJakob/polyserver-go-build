@@ -1,4 +1,4 @@
-name: Build and Release Polyserver for all platforms
+name: Build and Release Polyserver
 on:
   push:
     tags:
@@ -8,98 +8,59 @@ jobs:
   build:
     name: Build Polyserver
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+        - { goos: windows, goarch: amd64, output: polyserver_windows_amd64.exe }
+        - { goos: windows, goarch: arm64, output: polyserver_windows_arm64.exe }
+        - { goos: linux, goarch: amd64, output: polyserver_linux_amd64 }
+        - { goos: linux, goarch: arm64, output: polyserver_linux_arm64 }
+        - { goos: linux, goarch: 386, output: polyserver_linux_386 }
+        - { goos: linux, goarch: arm, output: polyserver_linux_arm }
+        - { goos: darwin, goarch: amd64, output: polyserver_darwin_amd64 }
+        - { goos: darwin, goarch: arm64, output: polyserver_darwin_arm64 }
+        - { goos: freebsd, goarch: amd64, output: polyserver_freebsd_amd64 }
+        - { goos: freebsd, goarch: arm64, output: polyserver_freebsd_arm64 }
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v4
       with:
         go-version: 'stable'
 
-    - name: Create output directory
-      run: mkdir -p out
-
-    - name: Generate build matrix
-      id: matrix
+    - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
       run: |
-        # Priority targets first
-        targets=(
-          "windows:amd64"
-          "linux:amd64"
-          "linux:arm64"
-          "darwin:amd64"
-          "darwin:arm64"
-        )
+        mkdir -p out
+        env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o out/${{ matrix.output }} .
 
-        # Get all supported targets from Go
-        while IFS='/' read -r goos goarch; do
-          target="${goos}:${goarch}"
-          # Skip if already in priority list
-          if [[ ! " ${targets[@]} " =~ " ${target} " ]]; then
-            targets+=("$target")
-          fi
-        done < <(go tool dist list)
-
-        # Output as JSON for matrix
-        printf '%s\n' "${targets[@]}" | jq -R . | jq -s . > /tmp/targets.json
-        cat /tmp/targets.json
-
-    - name: Build for all platforms
-      run: |
-        # Platforms that require cgo or special handling
-        skip=("android/386" "android/amd64" "android/arm" "android/arm64" "illumos/amd64" "ios/amd64" "ios/arm64" "js/wasm" "plan9/386" "plan9/amd64" "plan9/arm" "solaris/amd64" "wasip1/wasm")
-
-        # Priority targets first
-        priorities=(
-          "windows:amd64"
-          "linux:amd64"
-          "linux:arm64"
-          "darwin:amd64"
-          "darwin:arm64"
-        )
-
-        # Build priority targets
-        for target in "${priorities[@]}"; do
-          IFS=':' read -r goos goarch <<< "$target"
-          output="out/polyserver_${goos}_${goarch}"
-          [ "$goos" = "windows" ] && output="${output}.exe"
-          echo "Building $goos/$goarch -> $output"
-          env GOOS=$goos GOARCH=$goarch go build -o "$output" .
-        done
-
-        # Build all other supported targets
-        while IFS='/' read -r goos goarch; do
-          target="${goos}:${goarch}"
-          # Skip priority targets (already built)
-          skip=false
-          for priority in "${priorities[@]}"; do
-            if [ "$priority" = "$target" ]; then
-              skip=true
-              break
-            fi
-          done
-          
-          if [ "$skip" = false ]; then
-            output="out/polyserver_${goos}_${goarch}"
-            [ "$goos" = "windows" ] && output="${output}.exe"
-            echo "Building $goos/$goarch -> $output"
-            env GOOS=$goos GOARCH=$goarch go build -o "$output" . 2>/dev/null || echo "Build failed for $goos/$goarch (may be unsupported or require cgo)"
-          fi
-        done < <(go tool dist list)
-
-        echo "Build complete. Artifacts:"
-        ls -lh out/
-
-    - name: Upload artifacts
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: polyserver-builds
-        path: out/
+        name: ${{ matrix.output }}
+        path: out/${{ matrix.output }}
         retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release files
+      run: |
+        mkdir -p release
+        find artifacts -type f -exec mv {} release/ \;
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: out/*
+        files: release/*
         draft: false
         prerelease: false
       env:
