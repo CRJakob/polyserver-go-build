@@ -266,7 +266,7 @@ async function loadServerData() {
       <p>Max players: <strong>${sessionData["maxPlayers"]}</strong></p>
       <p>Current Map: <b>${data.currentDir}/${data.current}</b></p>
       `;
-    document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
+    document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"] || !sessionData["propagated"]
     document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"] || sessionData["propagated"]
     document.getElementById("endSessionBtn").disabled = sessionData["switchingSession"]
   } catch (e) {
