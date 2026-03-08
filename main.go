@@ -35,7 +35,6 @@ func proxyJSON(c *fiber.Ctx, method, url string) error {
 
 	body, _ := io.ReadAll(resp.Body)
 
-	// 🔥 Copy content type
 	c.Set("Content-Type", resp.Header.Get("Content-Type"))
 
 	return c.Status(resp.StatusCode).Send(body)
