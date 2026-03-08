@@ -7,6 +7,7 @@ import (
 	"fmt"
 	gamepackets "polyserver/game/packets"
 	"sync"
+	"sync/atomic"
 )
 
 // CarUpdateBatcher handles batching and splitting of car updates
@@ -77,6 +78,7 @@ func (b *CarUpdateBatcher) sendSinglePacket(player *Player, compressed []byte) e
 	binary.LittleEndian.PutUint32(packet[1:5], b.sessionID)
 	copy(packet[5:], compressed)
 
+	atomic.AddUint64(&player.Server.BytesSent, uint64(len(packet)))
 	return player.Session.UnreliableDC.Send(packet)
 }
 

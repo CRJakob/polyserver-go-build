@@ -107,7 +107,7 @@ async function loadStats() {
       
       let upRate = 0;
       let downRate = 0;
-      if (lastBytesSent > 0 || lastBytesReceived > 0) {
+      if ((lastBytesSent > 0 || lastBytesReceived > 0) && data.stats.bytesSent >= lastBytesSent && data.stats.bytesReceived >= lastBytesReceived) {
           upRate = data.stats.bytesSent - lastBytesSent;
           downRate = data.stats.bytesReceived - lastBytesReceived;
       }
@@ -117,16 +117,24 @@ async function loadStats() {
       histBwUp.push(upRate / 1024); histBwUp.shift(); // KB/s
       histBwDown.push(downRate / 1024); histBwDown.shift(); // KB/s
 
-      // Update multi-bandwidth labels
-      const sumArray = (arr, numItems) => arr.slice(-numItems).reduce((a, b) => a + b, 0) * 1024; // Convert KB back to Bytes for formatting
+      // Update multi-bandwidth labels (show average rate instead of total sum)
+      const avgArray = (arr, numItems) => {
+        const lastItems = arr.slice(-numItems);
+        // We only count non-null samples if we just started
+        const count = lastItems.filter(v => v !== undefined).length || 1; 
+        // Actually, hist arrays are initialized with 0, and we take exactly numItems
+        // but if we just pushed and shifted, the length remains 60.
+        // The most accurate way is to just divide by numItems for the window.
+        return (lastItems.reduce((a, b) => a + b, 0) / numItems) * 1024;
+      }
       
-      document.getElementById("stats-bw-up-1s").textContent = formatBytes(upRate);
-      document.getElementById("stats-bw-up-10s").textContent = formatBytes(sumArray(histBwUp, 10));
-      document.getElementById("stats-bw-up-60s").textContent = formatBytes(sumArray(histBwUp, 60));
+      document.getElementById("stats-bw-up-1s").textContent = formatBytes(upRate) + "/s";
+      document.getElementById("stats-bw-up-10s").textContent = formatBytes(avgArray(histBwUp, 10)) + "/s";
+      document.getElementById("stats-bw-up-60s").textContent = formatBytes(avgArray(histBwUp, 60)) + "/s";
 
-      document.getElementById("stats-bw-down-1s").textContent = formatBytes(downRate);
-      document.getElementById("stats-bw-down-10s").textContent = formatBytes(sumArray(histBwDown, 10));
-      document.getElementById("stats-bw-down-60s").textContent = formatBytes(sumArray(histBwDown, 60));
+      document.getElementById("stats-bw-down-1s").textContent = formatBytes(downRate) + "/s";
+      document.getElementById("stats-bw-down-10s").textContent = formatBytes(avgArray(histBwDown, 10)) + "/s";
+      document.getElementById("stats-bw-down-60s").textContent = formatBytes(avgArray(histBwDown, 60)) + "/s";
 
       if (chartTick) {
         chartTick.update();

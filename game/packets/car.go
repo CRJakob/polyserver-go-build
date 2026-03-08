@@ -270,10 +270,6 @@ func (cs *CarState) EncodeCarState() ([]byte, error) {
 
 	// Write frames (3 bytes, little-endian)
 	binary.LittleEndian.PutUint32(buf[offset:offset+4], cs.Frames)
-	// Take only first 3 bytes
-	buf[offset] = buf[offset]
-	buf[offset+1] = buf[offset+1]
-	buf[offset+2] = buf[offset+2]
 	offset += 3
 
 	// Write speedKmh (float32, 4 bytes)
@@ -302,8 +298,6 @@ func (cs *CarState) EncodeCarState() ([]byte, error) {
 	// Write finishFrames (optional, 3 bytes)
 	if cs.FinishFrames != nil {
 		binary.LittleEndian.PutUint32(buf[offset:offset+4], *cs.FinishFrames)
-		// Take only first 3 bytes
-		buf[offset+2] = buf[offset+2] // Keep third byte
 		offset += 3
 	}
 
@@ -480,8 +474,8 @@ func (p HostCarUpdatePacket) Marshal() ([]byte, error) {
 		return nil, fmt.Errorf("failed to encode car state: %w", err)
 	}
 
-	// Total size: header (8) + car state data
-	buf := make([]byte, CarUpdateHeaderSize+len(carStateData))
+	// Total size: 1 (type) + header (8) + car state data
+	buf := make([]byte, 1+CarUpdateHeaderSize+len(carStateData))
 
 	// Write packet type
 	buf[0] = byte(HostCarUpdate)
