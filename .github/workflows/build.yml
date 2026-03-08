@@ -44,6 +44,9 @@ jobs:
 
     - name: Build for all platforms
       run: |
+        # Platforms that require cgo or special handling
+        skip=("android/386" "android/amd64" "android/arm" "android/arm64" "illumos/amd64" "ios/amd64" "ios/arm64" "js/wasm" "plan9/386" "plan9/amd64" "plan9/arm" "solaris/amd64" "wasip1/wasm")
+
         # Priority targets first
         priorities=(
           "windows:amd64"
