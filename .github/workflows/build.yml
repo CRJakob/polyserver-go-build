@@ -5,8 +5,28 @@ on:
     - '*'
 
 jobs:
+  download-deps:
+    name: Download Dependencies
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v4
+      with:
+        go-version: 'stable'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: go-${{ hashFiles('**/go.sum') }}
+        restore-keys: go-
+
+    - name: Download dependencies
+      run: go mod download
+
   build:
-    name: Build Polyserver
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: download-deps
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -26,6 +46,13 @@ jobs:
     - uses: actions/setup-go@v4
       with:
         go-version: 'stable'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: go-${{ hashFiles('**/go.sum') }}
+        restore-keys: go-
 
     - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
       run: |
